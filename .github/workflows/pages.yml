@@ -1,0 +1,64 @@
+name: Online-Demo veröffentlichen
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:            # von Hand: Actions → Run workflow
+  schedule:
+    - cron: "17 4 * * 1"        # montags, übernimmt Änderungen
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dieses Repo (Anpassung)
+        uses: actions/checkout@v7
+
+      - name: Dashboard holen
+        uses: actions/checkout@v7
+        with:
+          repository: Michdo93/Smart-Home-Dashboard
+          ref: main
+          path: site
+
+      - name: Theme holen
+        uses: actions/checkout@v7
+        with:
+          repository: Michdo93/smart-home-dashboard-theme-standard
+          ref: main
+          path: theme
+
+      - name: Proxy-Client holen (feste Version)
+        uses: actions/checkout@v7
+        with:
+          repository: Michdo93/js-openhab-proxy-client
+          ref: 613da0d7e4ccceac593d85a8b95778371212602d
+          path: proxy-client
+
+      - name: Auf den Proxy umstellen und standard einbauen
+        run: ./anpassen.sh site proxy-client theme
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  veroeffentlichen:
+    needs: bauen
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
